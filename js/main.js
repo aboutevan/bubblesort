@@ -1,68 +1,59 @@
 (function() {
-'use strict';
+  'use strict';
+  var step = document.querySelector('.step');
+  var instructions = document.querySelector('.instructions');
+  var shuffle = document.querySelector('.shuffle');
+  var play = document.querySelector('.play');
 
-var data = [7, 4, 5, 2, 9, 1];
-var arrayNode = document.createElement('div');
-var arrayTextNode = document.createTextNode(data);
-var current;
-var state = {
-  preSorted: false,
-  postSorted: false
-}
-
-
-function randomArray(length, min, max) {
-  var integers = [];
-
-  for (var i = 0; i < length; i++) {
-    integers[i] = Math.round((max - min) * Math.random() + min);
+  var data;
+  var current;
+  var state = {
+    preSorted: false,
+    postSorted: false,
+    complete: false,
   }
 
-  // prevent repeats
-  function shuffle(array) {
-    var tmp, current, top = array.length;
-    if(top) while(--top) {
-      current = Math.floor(Math.random() * (top + 1));
-      tmp = array[current];
-      array[current] = array[top];
-      array[top] = tmp;
+
+  function randomArray(length, min, max) {
+    var integers = [];
+    for (var i = 0; i < length; i++) {
+      integers[i] = Math.round((max - min) * Math.random() + min);
     }
-    return array;
+    return integers;
   }
 
-  var shuffled = shuffle(integers);
-  return shuffled;
-}
+  function renderData(data) {
+    var table = document.querySelector('.data-table');
+    var dataEntry;
+    var dataEntryText;
+    var dataEntrySpan;
+    var tableElements = [];
 
+    // clear children
+    while (table.firstChild) {
+      table.removeChild(table.firstChild);
+    }
 
-function renderData(data) {
-  var table = document.querySelector('.data-table');
-  var dataEntry;
-  var dataEntryText;
-  var highlighted = false;
-  var tableEls = [];
+    // render rows
+    data.forEach(function (val, i) {
+      dataEntry = document.createElement('div');
+      dataEntrySpan = document.createElement('span');
+      dataEntryText = document.createTextNode(val);
 
-  // clear children
-  while (table.firstChild) {
-    table.removeChild(table.firstChild);
-  }
+      dataEntry.classList.add('data-entry');
+      dataEntry.style.width = val + '%';
+      dataEntry.dataset.value = val;
 
-  // render rows
-  data.forEach(function (val, i) {
-    dataEntry = document.createElement('div');
-    dataEntry.classList.add('data-entry');
+      dataEntry.appendChild(dataEntrySpan);
+      dataEntrySpan.appendChild(dataEntryText);
+      table.appendChild(dataEntry);
 
-    dataEntry.style.width = val + '%';
-    dataEntry.dataset.value = val;
+      tableElements.push(dataEntry);
+    });
 
-    dataEntryText = document.createTextNode(val);
-    dataEntry.appendChild(dataEntryText);
-    table.appendChild(dataEntry);
-    tableEls.push(dataEntry);
-  });
-
-  // highlight rows
-    tableEls.forEach(function(el, i) {
+    // highlight rows
+    tableElements.forEach(function(el, i) {
+      if (state.complete) return;
       if (+el.dataset.value === current && (state.preSorted || state.postSorted)) {
         el.classList.add('highlight');
         if (state.preSorted) {
@@ -72,52 +63,75 @@ function renderData(data) {
         }
       }
     });
-}
+  }
 
-function bubbleSort(arr) {
-  for (var i = 0, length = arr.length - 1; i < length; i++) {
-    current = arr[i];
-    if (arr[i] > arr[i + 1]) {
-      if (!state.preSorted && !state.postSorted) {
-        state.preSorted = true;
-      } else if (state.preSorted && !state.postSorted) {
-        var temp = arr[i];
-        arr[i] = arr[i + 1];
-        arr[i + 1] = temp;
-        state.preSorted = false;
-        state.postSorted = true;
+  function steppedBubbleSort (arr) {
+    for (var i = 0; i < arr.length; i++) {
+      current = arr[i];
+      // should swap
+      if (arr[i] > arr[i + 1]) {
+        if (!state.preSorted && !state.postSorted) {
+          // pre swap
+          state.preSorted = true;
+          break;
+        } else if (state.preSorted && !state.postSorted) {
+          // swap
+          var temp = arr[i];
+          arr[i] = arr[i + 1];
+          arr[i + 1] = temp;
+          state.preSorted = false;
+          state.postSorted = true;
+          break;
+        } else {
+          // post swap
+          state.postSorted = false;
+          break;
+        }
       } else {
-        state.postSorted = false;
+        // matched with last item
+        if (i + 1 === arr.length) {
+          state.complete = true;
+          current = null;
+        }
       }
-      return;
     }
   }
-  // var swapped;
-  // do {
-  //   swapped = false;
-  //   for (var i = 0, length = arr.length - 1; i < length; i++) {
-  //     if (arr[i] > arr[i + 1]) {
-  //       var temp = arr[i];
-  //       arr[i] = arr[i + 1];
-  //       arr[i + 1] = temp;
-  //       swapped = true;
-  //     }
-  //   }
-  // }
-  // while (swapped);
-}
 
-var step = document.querySelector('.step');
-step.addEventListener('click', function () {
-  bubbleSort(data);
-  renderData(data);
-});
+  step.addEventListener('click', function () {
+    steppedBubbleSort(data);
+    renderData(data);
+    if (state.complete) {
+      this.classList.add('hide');
+      play.classList.add('hide');
+    }
+  });
 
-var shuffle = document.querySelector('.shuffle');
-shuffle.addEventListener('click', function () {
-  data = randomArray(10, 0, 100);
-  renderData(data);
-})
+  shuffle.addEventListener('click', function () {
+    instructions.innerHTML = 'Press the step button to step through the sort, or press the play button to animate the sort in one go.  If you want new data, press the shuffle button.';
 
+    //reset state if called mid sort
+    Object.keys(state).forEach(val => state[val] = false);
+    if (step.classList.contains('hide')) step.classList.remove('hide');
+    if (play.classList.contains('hide')) play.classList.remove('hide');
 
+    // generate array
+    data = randomArray(10, 0, 100);
+    renderData(data);
+  })
+
+  play.addEventListener('click', function () {
+    step.classList.add('hide');
+    this.classList.add('hide');
+    shuffle.disabled = true;
+
+    var stepInterval = setInterval((function() {
+      steppedBubbleSort(data);
+      renderData(data);
+
+      if (state.complete) {
+        clearInterval(stepInterval);
+        shuffle.disabled = false;
+      }
+    }).bind(this), 200);
+  })
 })();
